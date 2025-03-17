@@ -39,3 +39,4 @@ State | Format | Extension | Description
 ❌ Incomplete |  RMB | .rmb | Controller rumble effects for all games
 ❌ Incomplete |  TPF | .tpf | A container for platform-specific texture data
 
+`zig build read_dcx -- "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx"`
