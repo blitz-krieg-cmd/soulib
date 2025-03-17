@@ -137,31 +137,27 @@ pub fn read(
             .header = header,
             .data = compressed_data,
         };
-    } else if (!std.mem.eql(u8, &header.format, "DFLT")) {
-        return ParseError.UnsupportedCompression;
-    }
+    } else if (std.mem.eql(u8, &header.format, "DFLT")) {
+        var stream = std.io.fixedBufferStream(compressed_data);
+        var decompressor = std.compress.zlib.decompressor(stream.reader());
 
-    var stream = std.io.fixedBufferStream(compressed_data);
-    var decompressor = std.compress.zlib.decompressor(stream.reader());
+        // Allocate buffer for decompressed data
+        const decompressed = try allocator.alloc(u8, header.uncompressedSize);
+        errdefer allocator.free(decompressed);
 
-    // Allocate buffer for decompressed data
-    const decompressed = try allocator.alloc(u8, header.uncompressedSize);
-    errdefer allocator.free(decompressed);
+        decompressor.reader().readNoEof(decompressed) catch return error.DecompressionFailed;
 
-    decompressor.reader().readNoEof(decompressed) catch return error.DecompressionFailed;
-
-    return DCX{
-        .header = header,
-        .data = decompressed,
-    };
+        return DCX{
+            .header = header,
+            .data = decompressed,
+        };
+    } else return ParseError.UnsupportedCompression;
 }
 
 // ===========Testing=========== //
 
-test "dcx DSR item.msgbnd.dcx" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+test "DSR item.msgbnd.dcx" {
+    const allocator = std.testing.allocator;
 
     const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx";
 
@@ -172,11 +168,13 @@ test "dcx DSR item.msgbnd.dcx" {
     defer file.close();
 
     const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+    defer allocator.free(fileBytes);
 
     const dcx = try DCX.read(
         allocator,
         fileBytes,
     );
+    defer allocator.free(dcx.data);
 
     try std.testing.expect(std.mem.eql(u8, &dcx.header.dcx, "DCX\x00"));
     try std.testing.expect(std.mem.eql(u8, &dcx.header.format, "DFLT"));
@@ -185,10 +183,8 @@ test "dcx DSR item.msgbnd.dcx" {
     try std.testing.expect(dcx.data.len == 3113120);
 }
 
-test "dcx DSR DSFont24.ccm.dcx" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+test "DSR DSFont24.ccm.dcx" {
+    const allocator = std.testing.allocator;
 
     const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/font/english/DSFont24.ccm.dcx";
 
@@ -199,11 +195,13 @@ test "dcx DSR DSFont24.ccm.dcx" {
     defer file.close();
 
     const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+    defer allocator.free(fileBytes);
 
     const dcx = try DCX.read(
         allocator,
         fileBytes,
     );
+    defer allocator.free(dcx.data);
 
     try std.testing.expect(std.mem.eql(u8, &dcx.header.dcx, "DCX\x00"));
     try std.testing.expect(std.mem.eql(u8, &dcx.header.format, "DFLT"));
@@ -212,10 +210,8 @@ test "dcx DSR DSFont24.ccm.dcx" {
     try std.testing.expect(dcx.data.len == 32468);
 }
 
-test "dcx DSR TalkFont24.tpf.dcx" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+test "DSR TalkFont24.tpf.dcx" {
+    const allocator = std.testing.allocator;
 
     const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/font/english/TalkFont24.tpf.dcx";
 
@@ -226,11 +222,13 @@ test "dcx DSR TalkFont24.tpf.dcx" {
     defer file.close();
 
     const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+    defer allocator.free(fileBytes);
 
     const dcx = try DCX.read(
         allocator,
         fileBytes,
     );
+    defer allocator.free(dcx.data);
 
     try std.testing.expect(std.mem.eql(u8, &dcx.header.dcx, "DCX\x00"));
     try std.testing.expect(std.mem.eql(u8, &dcx.header.format, "DFLT"));
