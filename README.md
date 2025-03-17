@@ -2,54 +2,55 @@
 
 Currently a very WIP library being created slowly in my free time. Feel free to contribute but I don't have any clear direction on how I want this project to be structured so please be mindful of that. If you have any questions feel free to ask them.
 
-## Design of library
+## Design of the library
 
-Define import the library and init allocator.
+Rough summary of using the library:
+    * Open file using it's path.
+    * Read all bytes from file.
+    * Pass file bytes to library and parse.
+
+## Example Usage
 
 ```zig
+// Import the library.
 const std = @import("std");
 const soulib = @import("soulib");
 
 pub fn main() !void {
+    // Define the allocator to use.
+    // The std.heap.ArenaAllocator is a good choice for using
+    // this lib as it frees all memory on exit.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    // Following examples.
+    // Define the file to parse over.
+    const path = "path/to/dcx/file.dcx";
+    var file = std.fs.openFileAbsolute(
+        path,
+        .{ .mode = .read_only },
+    ) catch unreachable;
+    defer file.close();
+
+    // Read the bytes from the file.
+    const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+
+    // Parse the file.
+    const dcx = try soulib.DCX.read(
+        allocator,
+        fileBytes,
+    );
+    
+    // Use the parsed data.
+    std.debug.print("HEADER:\n    Magic: {c}\n    Compression Type: {c}\n    Compressed size: {d}\n    Decompressed size: {d}\nBODY:\n    Length: {d}\n    Summary: {x}", .{
+        dcx.header.dcx,
+        dcx.header.format,
+        dcx.header.compressedSize,
+        dcx.header.uncompressedSize,
+        dcx.data.len,
+        dcx.data[0..32],
+    });
 }
-```
-
-Define the file bytes to parse over.
-
-```zig
-const path = "path/to/dcx/file.dcx";
-
-var file = std.fs.openFileAbsolute(
-    path,
-    .{ .mode = .read_only },
-) catch unreachable;
-defer file.close();
-const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
-```
-
-Parse the file using the bytes and do what you want with it.
-
-```zig
-// Parse the file.
-const dcx = try soulib.DCX.read(
-    allocator,
-    fileBytes,
-);
-
-// Use the parsed data.
-std.debug.print("HEADER:\n    Magic: {c}\n    Compression Type: {c}\n    Compressed size: {d}\n    Decompressed size: {d}\nBODY:\n    Length: {d}\n    Summary: {x}", .{
-    dcx.header.dcx,
-    dcx.header.format,
-    dcx.header.compressedSize,
-    dcx.header.uncompressedSize,
-    dcx.data.len,
-    dcx.data[0..32],
-});
 ```
 
 ## Formats
