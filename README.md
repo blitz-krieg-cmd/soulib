@@ -1,7 +1,59 @@
-# Soulib - Souls Lib
+# Souls Lib (Soulib)
+
 Currently a very WIP library being created slowly in my free time. Feel free to contribute but I don't have any clear direction on how I want this project to be structured so please be mindful of that. If you have any questions feel free to ask them.
 
-# Formats
+## Design of library
+
+Define import the library and init allocator.
+
+```zig
+const std = @import("std");
+const soulib = @import("soulib");
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    // Following examples.
+}
+```
+
+Define the file bytes to parse over.
+
+```zig
+const path = "path/to/dcx/file.dcx";
+
+var file = std.fs.openFileAbsolute(
+    path,
+    .{ .mode = .read_only },
+) catch unreachable;
+defer file.close();
+const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+```
+
+Parse the file using the bytes and do what you want with it.
+
+```zig
+// Parse the file.
+const dcx = try soulib.DCX.read(
+    allocator,
+    fileBytes,
+);
+
+// Use the parsed data.
+std.debug.print("HEADER:\n    Magic: {c}\n    Compression Type: {c}\n    Compressed size: {d}\n    Decompressed size: {d}\nBODY:\n    Length: {d}\n    Summary: {x}", .{
+    dcx.header.dcx,
+    dcx.header.format,
+    dcx.header.compressedSize,
+    dcx.header.uncompressedSize,
+    dcx.data.len,
+    dcx.data[0..32],
+});
+```
+
+## Formats
+
 Basic descriptions are provided below. Checkmarks show library progress on file type.
 
 State | Format | Extension | Description
@@ -39,4 +91,7 @@ State | Format | Extension | Description
 ❌ Incomplete |  RMB | .rmb | Controller rumble effects for all games
 ❌ Incomplete |  TPF | .tpf | A container for platform-specific texture data
 
+## Examples Building
+
+To run examples:  
 `zig build read_dcx -- "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx"`
