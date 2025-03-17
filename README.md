@@ -5,21 +5,19 @@ Currently a very WIP library being created slowly in my free time. Feel free to 
 ## Design of the library
 
 Rough summary of using the library:
-    * Open file using it's path.
-    * Read all bytes from file.
-    * Pass file bytes to library and parse.
+    *Open file using it's path.
+    *Read all bytes from file.
+    *Pass file bytes to library and parse.
 
 ## Example Usage
 
 ```zig
-// Import the library.
 const std = @import("std");
+// Import the library.
 const soulib = @import("soulib");
 
 pub fn main() !void {
     // Define the allocator to use.
-    // The std.heap.ArenaAllocator is a good choice for using
-    // this lib as it frees all memory on exit.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
