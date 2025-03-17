@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const DCX = @This();
+
 // Define error set for parsing operations
 const ParseError = error{
     InvalidMagic,
@@ -13,7 +15,7 @@ const ParseError = error{
 const Error = ParseError || anyerror;
 
 // Define the DCX header struct
-const DcxHeader = struct {
+const Header = struct {
     dcx: [4]u8, // Assert(dcx == "DCX\0");
     unk04: i32, // Assert(unk04 == 0x10000 || unk04 == 0x11000);
     dcsOffset: i32, // Assert(dcsOffset == 0x18);
@@ -40,7 +42,7 @@ const DcxHeader = struct {
     dca: [4]u8, // Assert(dca == "DCA\0");
     dcaSize: i32, // From before "DCA" to dca end
 
-    fn parse(reader: std.io.AnyReader) Error!DcxHeader {
+    fn parse(reader: anytype) Error!Header {
         const dcx: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
         if (!std.mem.eql(u8, &dcx, "DCX\x00") and !std.mem.eql(u8, &dcx, "DCP\x00")) return error.InvalidMagic;
 
@@ -82,7 +84,7 @@ const DcxHeader = struct {
 
         const dcaSize: i32 = reader.readInt(i32, .big) catch return error.UnexpectedEof;
 
-        return DcxHeader{
+        return Header{
             .dcx = dcx,
             .unk04 = unk04,
             .dcsOffset = dcsOffset,
@@ -112,132 +114,128 @@ const DcxHeader = struct {
     }
 };
 
-// Define the full DCX file struct
-const DcxFile = struct {
-    header: DcxHeader,
-    data: []u8, // Decompressed data
+header: Header,
+data: []u8,
 
-    fn parse(allocator: std.mem.Allocator, reader: std.io.AnyReader) Error!DcxFile {
-        const header = try DcxHeader.parse(reader);
-        const data = try decompress(allocator, reader, header);
-
-        return DcxFile{
-            .header = header,
-            .data = data,
-        };
-    }
-
-    fn decompress(allocator: std.mem.Allocator, reader: std.io.AnyReader, header: DcxHeader) ![]u8 {
-        // Allocate buffer for compressed data
-        const compressed_data = try allocator.alloc(u8, header.compressedSize);
-        errdefer allocator.free(compressed_data);
-        // Read the compressed data
-        try reader.readNoEof(compressed_data);
-
-        // Handle decompression based on compression type
-        if (std.mem.eql(u8, &header.format, "NONE")) {
-            // No compression
-            if (header.compressedSize != header.uncompressedSize) {
-                allocator.free(compressed_data);
-                return error.DecompressionFailed;
-            }
-            return compressed_data;
-        } else if (std.mem.eql(u8, &header.format, "DFLT")) {
-            // DFLT
-            const decompressed = try decompressDFLT(allocator, compressed_data, header);
-            allocator.free(compressed_data);
-            return decompressed;
-        } else {
-            allocator.free(compressed_data);
-            return error.UnsupportedCompression;
-        }
-    }
-
-    fn decompressDFLT(allocator: std.mem.Allocator, compressed_data: []u8, header: DcxHeader) ![]u8 {
-        var stream = std.io.fixedBufferStream(compressed_data);
-        var decompressor = std.compress.zlib.decompressor(stream.reader());
-
-        // Allocate buffer for decompressed data
-        const decompressed = try allocator.alloc(u8, header.uncompressedSize);
-        errdefer allocator.free(decompressed);
-
-        // Read exactly decompressed_size bytes
-        try decompressor.reader().readNoEof(decompressed);
-
-        return decompressed;
-    }
-};
-
-pub const DCX = struct {
-    header: DcxHeader,
-    data: []u8,
+pub fn read(
     allocator: std.mem.Allocator,
+    bytes: []u8,
+) Error!DCX {
+    var fbs = std.io.fixedBufferStream(bytes);
 
-    pub fn init(allocator: std.mem.Allocator, path: []const u8) !DCX {
-        // Open a DCX file
-        const file = try std.fs.cwd().openFile(path, .{});
-        defer file.close();
+    const reader = fbs.reader();
 
-        // Create a reader for the file
-        const reader = file.reader().any();
+    const header = try Header.parse(reader);
+    const compressed_data = try allocator.alloc(u8, header.compressedSize);
+    defer allocator.free(compressed_data);
 
-        const dcx = try DcxFile.parse(allocator, reader);
+    try reader.readNoEof(compressed_data);
+
+    if (std.mem.eql(u8, &header.format, "NONE")) {
+        if (header.compressedSize != header.uncompressedSize) {
+            return Error.DecompressionFailed;
+        }
         return DCX{
-            .allocator = allocator,
-            .header = dcx.header,
-            .data = dcx.data,
+            .header = header,
+            .data = compressed_data,
         };
+    } else if (!std.mem.eql(u8, &header.format, "DFLT")) {
+        return Error.UnsupportedCompression;
     }
 
-    pub fn deinit(self: *DCX) void {
-        self.allocator.free(self.data);
-    }
-};
+    var stream = std.io.fixedBufferStream(compressed_data);
+    var decompressor = std.compress.zlib.decompressor(stream.reader());
 
-//
-// Testing
-//
+    // Allocate buffer for decompressed data
+    const decompressed = try allocator.alloc(u8, header.uncompressedSize);
+    errdefer allocator.free(decompressed);
 
-test "read dcx header" {
-    // Open a DCX file
-    const file = try std.fs.cwd().openFile("game_bins/msg/ENGLISH/item.msgbnd.dcx", .{});
-    defer file.close();
+    // Read exactly decompressed_size bytes
+    try decompressor.reader().readNoEof(decompressed);
 
-    // Create a reader for the file
-    const reader = file.reader().any();
-
-    // Parse the DCX header
-    const header = try DcxHeader.parse(reader);
-
-    // Use the parsed data (e.g., print sizes)
-    std.debug.print("HEADER:\n    Magic: {c}\n    Compression Type: {c}\n    Compressed size: {d}\n    Decompressed size: {d}\n", .{
-        header.dcx,
-        header.format,
-        header.compressedSize,
-        header.uncompressedSize,
-    });
+    return DCX{
+        .header = header,
+        .data = decompressed,
+    };
 }
 
-test "read dcx" {
-    const allocator = std.testing.allocator;
+test "dcx DSR item.msgbnd.dcx" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    const path: []const u8 = "game_bins/msg/ENGLISH/item.msgbnd.dcx";
+    const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx";
 
-    // Parse the DCX
-    var dcx = try DCX.init(allocator, path);
-    defer dcx.deinit();
+    var file = std.fs.openFileAbsolute(
+        path,
+        .{ .mode = .read_only },
+    ) catch unreachable;
+    defer file.close();
 
-    std.debug.print("HEADER:\n    Magic: {c}\n    Compression Type: {c}\n    Compressed size: {d}\n    Decompressed size: {d}\n", .{
-        dcx.header.dcx,
-        dcx.header.format,
-        dcx.header.compressedSize,
-        dcx.header.uncompressedSize,
-    });
+    const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
 
-    // Use the parsed data (e.g., print sizes)
-    std.debug.print("BODY:    Length: {d}\n    Summary: {x}..{x}\n", .{
-        dcx.data.len,
-        dcx.data[0..32],
-        dcx.data[dcx.data.len - 32 .. dcx.data.len],
-    });
+    const dcx = try DCX.read(
+        allocator,
+        fileBytes,
+    );
+
+    try std.testing.expect(std.mem.eql(u8, &dcx.header.dcx, "DCX\x00"));
+    try std.testing.expect(std.mem.eql(u8, &dcx.header.format, "DFLT"));
+    try std.testing.expect(dcx.header.compressedSize == 346199);
+    try std.testing.expect(dcx.header.uncompressedSize == 3113120);
+    try std.testing.expect(dcx.data.len == 3113120);
+}
+
+test "dcx DSR DSFont24.ccm.dcx" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/font/english/DSFont24.ccm.dcx";
+
+    var file = std.fs.openFileAbsolute(
+        path,
+        .{ .mode = .read_only },
+    ) catch unreachable;
+    defer file.close();
+
+    const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+
+    const dcx = try DCX.read(
+        allocator,
+        fileBytes,
+    );
+
+    try std.testing.expect(std.mem.eql(u8, &dcx.header.dcx, "DCX\x00"));
+    try std.testing.expect(std.mem.eql(u8, &dcx.header.format, "DFLT"));
+    try std.testing.expect(dcx.header.compressedSize == 10732);
+    try std.testing.expect(dcx.header.uncompressedSize == 32468);
+    try std.testing.expect(dcx.data.len == 32468);
+}
+
+test "dcx DSR TalkFont24.tpf.dcx" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/font/english/TalkFont24.tpf.dcx";
+
+    var file = std.fs.openFileAbsolute(
+        path,
+        .{ .mode = .read_only },
+    ) catch unreachable;
+    defer file.close();
+
+    const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
+
+    const dcx = try DCX.read(
+        allocator,
+        fileBytes,
+    );
+
+    try std.testing.expect(std.mem.eql(u8, &dcx.header.dcx, "DCX\x00"));
+    try std.testing.expect(std.mem.eql(u8, &dcx.header.format, "DFLT"));
+    try std.testing.expect(dcx.header.compressedSize == 856756);
+    try std.testing.expect(dcx.header.uncompressedSize == 4194940);
+    try std.testing.expect(dcx.data.len == 4194940);
 }
