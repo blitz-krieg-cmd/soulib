@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
     const soulib = b.addLibrary(.{
         .linkage = .static,
         .name = "soulib",
-        .root_module = b.createModule(.{
+        .root_module = b.addModule("soulib", .{
             .root_source_file = b.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
@@ -39,7 +39,6 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        exe.linkLibrary(soulib);
         exe.root_module.addImport("soulib", soulib.root_module);
 
         const run_cmd = b.addRunArtifact(exe);

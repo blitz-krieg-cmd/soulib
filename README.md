@@ -100,7 +100,7 @@ State | Format | Extension | Description
 ## Examples Building
 
 > To run examples:  
-`zig build read_dcx -- "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx"`
+`zig build read_dcx -Dtarget=x86_64-windows -- "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx"`
 
 ## Notes on Testing
 

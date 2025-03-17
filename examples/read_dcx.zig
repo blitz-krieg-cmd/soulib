@@ -24,7 +24,7 @@ pub fn main() !void {
     });
 
     // Use the parsed data (e.g., print sizes)
-    std.debug.print("BODY:\n    Length: {d}\n    Summary: {x}", .{
+    std.debug.print("BODY:\n    Length: {d}\n    Summary: {x}\n", .{
         dcx.data.len,
         dcx.data[0..32],
     });
