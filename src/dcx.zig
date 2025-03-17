@@ -12,8 +12,6 @@ const ParseError = error{
     UnexpectedEof,
 };
 
-const Error = ParseError || anyerror;
-
 // Define the DCX header struct
 const Header = struct {
     dcx: [4]u8, // Assert(dcx == "DCX\0");
@@ -42,7 +40,7 @@ const Header = struct {
     dca: [4]u8, // Assert(dca == "DCA\0");
     dcaSize: i32, // From before "DCA" to dca end
 
-    fn parse(reader: anytype) Error!Header {
+    fn parse(reader: anytype) ParseError!Header {
         const dcx: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
         if (!std.mem.eql(u8, &dcx, "DCX\x00") and !std.mem.eql(u8, &dcx, "DCP\x00")) return error.InvalidMagic;
 
@@ -120,7 +118,7 @@ data: []u8,
 pub fn read(
     allocator: std.mem.Allocator,
     bytes: []u8,
-) Error!DCX {
+) ParseError!DCX {
     var fbs = std.io.fixedBufferStream(bytes);
 
     const reader = fbs.reader();
@@ -129,18 +127,18 @@ pub fn read(
     const compressed_data = try allocator.alloc(u8, header.compressedSize);
     defer allocator.free(compressed_data);
 
-    try reader.readNoEof(compressed_data);
+    reader.readNoEof(compressed_data) catch return error.UnexpectedEof;
 
     if (std.mem.eql(u8, &header.format, "NONE")) {
         if (header.compressedSize != header.uncompressedSize) {
-            return Error.DecompressionFailed;
+            return ParseError.DecompressionFailed;
         }
         return DCX{
             .header = header,
             .data = compressed_data,
         };
     } else if (!std.mem.eql(u8, &header.format, "DFLT")) {
-        return Error.UnsupportedCompression;
+        return ParseError.UnsupportedCompression;
     }
 
     var stream = std.io.fixedBufferStream(compressed_data);
@@ -150,14 +148,15 @@ pub fn read(
     const decompressed = try allocator.alloc(u8, header.uncompressedSize);
     errdefer allocator.free(decompressed);
 
-    // Read exactly decompressed_size bytes
-    try decompressor.reader().readNoEof(decompressed);
+    decompressor.reader().readNoEof(decompressed) catch return error.DecompressionFailed;
 
     return DCX{
         .header = header,
         .data = decompressed,
     };
 }
+
+// ===========Testing=========== //
 
 test "dcx DSR item.msgbnd.dcx" {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
