@@ -1,13 +1,14 @@
 # Souls Lib (Soulib)
 
-Currently a very WIP library being created slowly in my free time. Feel free to contribute but I don't have any clear direction on how I want this project to be structured so please be mindful of that. If you have any questions feel free to ask them.
+> Currently a very WIP library being created slowly in my free time. Feel free to contribute but I don't have any clear direction on how I want this project to be structured so please be mindful of that. If you have any questions feel free to ask them.
 
 ## Design of the library
 
 Rough summary of using the library:
-    *Open file using it's path.
-    *Read all bytes from file.
-    *Pass file bytes to library and parse.
+
+- Open file using it's path.
+- Read all bytes from file.
+- Pass file bytes to library and parse.
 
 ## Example Usage
 
@@ -92,5 +93,17 @@ State | Format | Extension | Description
 
 ## Examples Building
 
-To run examples:  
+> To run examples:  
 `zig build read_dcx -- "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx"`
+
+## Notes on Testing
+
+The tests in the source look to a Dark Souls Remastered Directory. It should be alongside the build.zig and called "dsr".
+
+- build.zig
+- src/
+  - root.zig
+  - dcx.zig
+- dsr/
+  - chr/
+  - msg/
