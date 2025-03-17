@@ -2,6 +2,12 @@
 
 > Currently a very WIP library being created slowly in my free time. Feel free to contribute but I don't have any clear direction on how I want this project to be structured so please be mindful of that. If you have any questions feel free to ask them.
 
+## Goals
+
+- Zig Library
+- C ABI Library from Zig
+- All recent common fromsoft formats (excluding older titles. anything prior ds1-ptde)
+
 ## Design of the library
 
 Rough summary of using the library:
