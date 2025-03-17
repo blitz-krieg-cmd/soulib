@@ -5,7 +5,7 @@ zig-out/
 .vscode/
 
 # Testing Files - Don't violate copyright
-game_bins/
+dsr/
 
 # Reference
 SoulsFormats/

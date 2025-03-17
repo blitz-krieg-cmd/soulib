@@ -159,9 +159,9 @@ pub fn read(
 test "DSR item.msgbnd.dcx" {
     const allocator = std.testing.allocator;
 
-    const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/msg/ENGLISH/item.msgbnd.dcx";
+    const path = "dsr/msg/ENGLISH/item.msgbnd.dcx";
 
-    var file = std.fs.openFileAbsolute(
+    var file = std.fs.cwd().openFile(
         path,
         .{ .mode = .read_only },
     ) catch unreachable;
@@ -186,9 +186,9 @@ test "DSR item.msgbnd.dcx" {
 test "DSR DSFont24.ccm.dcx" {
     const allocator = std.testing.allocator;
 
-    const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/font/english/DSFont24.ccm.dcx";
+    const path = "dsr/font/english/DSFont24.ccm.dcx";
 
-    var file = std.fs.openFileAbsolute(
+    var file = std.fs.cwd().openFile(
         path,
         .{ .mode = .read_only },
     ) catch unreachable;
@@ -213,9 +213,9 @@ test "DSR DSFont24.ccm.dcx" {
 test "DSR TalkFont24.tpf.dcx" {
     const allocator = std.testing.allocator;
 
-    const path = "E:/SteamLibrary/steamapps/common/DARK SOULS REMASTERED/font/english/TalkFont24.tpf.dcx";
+    const path = "dsr/font/english/TalkFont24.tpf.dcx";
 
-    var file = std.fs.openFileAbsolute(
+    var file = std.fs.cwd().openFile(
         path,
         .{ .mode = .read_only },
     ) catch unreachable;
