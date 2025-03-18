@@ -23,7 +23,7 @@ pub fn main() !void {
 
     // Use the parsed data.
     std.debug.print("HEADER:\n    Magic: {c}\n    Compression Type: {c}\n    Compressed size: {d}\n    Decompressed size: {d}\nBODY:\n    Length: {d}\n    Summary: {x}\n", .{
-        dcx.header.dcx,
+        dcx.header.magic,
         dcx.header.format,
         dcx.header.compressedSize,
         dcx.header.uncompressedSize,
