@@ -20,8 +20,6 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    soulib.bundle_compiler_rt = true;
-    soulib.bundle_ubsan_rt = true;
     b.installArtifact(soulib);
 
     const examples = [_]Program{
