@@ -20,6 +20,8 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
+    soulib.bundle_compiler_rt = true;
+    soulib.bundle_ubsan_rt = true;
     b.installArtifact(soulib);
 
     const examples = [_]Program{
@@ -37,7 +39,7 @@ pub fn build(b: *std.Build) void {
             .name = example.name,
             .root_source_file = b.path(example.path),
             .target = target,
-            .optimize = optimize,
+            .optimize = .ReleaseSafe,
         });
         exe.root_module.addImport("soulib", soulib.root_module);
 
@@ -58,6 +60,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
     const lib_unit_test = b.addRunArtifact(unit_test);

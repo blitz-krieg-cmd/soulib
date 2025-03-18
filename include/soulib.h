@@ -2,9 +2,9 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
 
 typedef struct  {
     uint8_t dcx[4]; 
@@ -21,8 +21,8 @@ typedef struct  {
     uint8_t data[];
 } DCX_C;
 
-DCX_C parseDCX(char* path);
+extern DCX_C parseDCX(char *path);
 
-#ifdef __cplusplus
-};
-#endif
+// #ifdef __cplusplus
+// };
+// #endif

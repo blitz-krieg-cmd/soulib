@@ -154,9 +154,6 @@ pub fn read(
     } else return ParseError.UnsupportedCompression;
 }
 
-// ===========C-API=========== //
-pub const DCX_C = @import("dcx_c.zig");
-
 // ===========Testing=========== //
 
 test "DSR item.msgbnd.dcx" {
