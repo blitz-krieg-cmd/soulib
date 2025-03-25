@@ -16,6 +16,18 @@ const Header = struct {
 header: Header,
 data: []u8,
 
+pub fn is(
+    bytes: []u8,
+) ParseError!bool {
+    var fbs = std.io.fixedBufferStream(bytes);
+    const reader = fbs.reader();
+
+    const magic: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
+    const magicCheck = eql(u8, &magic, "DCX\x00") or eql(u8, &magic, "DCP\x00");
+
+    return magicCheck;
+}
+
 pub fn read(
     bytes: []u8,
 ) ParseError!DCX {
@@ -164,8 +176,14 @@ pub fn read(
                 },
                 .data = decompressed.toOwnedSlice() catch unreachable,
             };
-        } else {
+        } else if (eql(u8, &format, "DFLT")) {
             return error.UnsupportedCompression;
+        } else if (eql(u8, &format, "KRAK")) {
+            return error.UnsupportedCompression;
+        } else if (eql(u8, &format, "ZSTD")) {
+            return error.UnsupportedCompression;
+        } else {
+            return error.UnknownCompression;
         }
     } else {
         return error.UnknownCompression;
@@ -189,6 +207,8 @@ test "DSR TalkFont24.tpf.dcx" {
 
     const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
     defer allocator.free(fileBytes);
+
+    try std.testing.expect(try DCX.is(fileBytes));
 
     const dcx = try DCX.read(fileBytes);
 

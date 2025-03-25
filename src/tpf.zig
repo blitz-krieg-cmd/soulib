@@ -34,6 +34,17 @@ const Texture = struct {
 header: Header,
 textures: []Texture, // length of textureCount
 
+pub fn is(
+    bytes: []u8,
+) ParseError!bool {
+    var fbs = std.io.fixedBufferStream(bytes);
+    const reader = fbs.reader();
+
+    const magic: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
+
+    return eql(u8, &magic, "TPF\x00");
+}
+
 pub fn read(
     bytes: []u8,
 ) ParseError!TPF {
