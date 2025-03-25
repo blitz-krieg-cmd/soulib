@@ -158,8 +158,10 @@ test "DSR TalkFont24.tpf.dcx" {
     const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
     defer allocator.free(fileBytes);
 
+    try std.testing.expect(try DCX.is(fileBytes));
     const dcx: DCX = try DCX.read(fileBytes);
 
+    try std.testing.expect(try TPF.is(dcx.data));
     const tpf: TPF = try read(dcx.data);
 
     try std.testing.expect(std.mem.eql(u8, &tpf.header.magic, "TPF\x00"));
