@@ -6,35 +6,6 @@ const ParseError = @import("root.zig").ParseError;
 
 const DCX = @This();
 
-// Define the DCX header struct
-
-const DCX_DFLT_Header = extern struct {
-    unk04: i32,
-    dcsOffset: i32,
-    dcpOffset: i32,
-    unk10: i32,
-    unk14: i32,
-    dcs: [4]u8,
-    uncompressedSize: i32,
-    compressedSize: i32,
-    dcp: [4]u8,
-    format: [4]u8,
-    unk2C: i32,
-    level: u8,
-    unk31: u8,
-    unk32: u8,
-    unk33: u8,
-    unk34: i32,
-    unk38: u8,
-    unk39: u8,
-    unk3A: u8,
-    unk3B: u8,
-    unk3C: i32,
-    unk40: i32,
-    dca: [4]u8,
-    dcaSize: i32,
-};
-
 const Header = struct {
     magic: [4]u8,
     dcsOffset: i32,
@@ -69,66 +40,89 @@ pub fn read(
         format = bytes[0x28 .. 0x28 + 4].*;
 
         if (eql(u8, &format, "DFLT")) {
-            const header = reader.readStructEndian(DCX_DFLT_Header, endian) catch return error.UnexpectedEof;
+            const unk04 = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(unk04 == 0x10000 or unk04 == 0x11000);
+            const dcsOffset = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(dcsOffset == 0x18);
+            const dcpOffset = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(dcpOffset == 0x24);
+            const unk10 = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(unk10 == 0x24 or unk10 == 0x44);
+            const unk14 = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            const unk14Check: i32 = if (unk10 == 0x24) 0x2c else 0x4c;
+            assert(unk14 == unk14Check);
+            const dcs: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
+            assert(eql(u8, &dcs, "DCS\x00"));
+            const uncompressedSize = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            const compressedSize = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(uncompressedSize != compressedSize);
+            const dcp: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
+            assert(eql(u8, &dcp, "DCP\x00"));
+            _ = reader.readBytesNoEof(4) catch return error.UnexpectedEof; // format again
+            const unk2C = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(unk2C == 0x20);
+            const level = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(level == 8 or level == 9);
+            const unk31 = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk31 == 0);
+            const unk32 = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk32 == 0);
+            const unk33 = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk33 == 0);
+            const unk34 = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(unk34 == 0x0);
+            const unk38 = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk38 == 0 or unk38 == 15);
+            const unk39 = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk39 == 0);
+            const unk3A = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk3A == 0);
+            const unk3B = reader.readInt(u8, endian) catch return error.UnexpectedEof;
+            assert(unk3B == 0);
+            const unk3C = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(unk3C == 0x0);
+            const unk40 = reader.readInt(i32, endian) catch return error.UnexpectedEof;
+            assert(unk40 == 0x00010100);
+            const dca: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
+            assert(eql(u8, &dca, "DCA\x00"));
 
-            assert(header.unk04 == 0x10000 or header.unk04 == 0x11000);
-            assert(header.dcsOffset == 0x18);
-            assert(header.dcpOffset == 0x24);
-            assert(header.unk10 == 0x24 or header.unk10 == 0x44);
-            const unk14Check: i32 = if (header.unk10 == 0x24) 0x2c else 0x4c;
-            assert(header.unk14 == unk14Check);
-            assert(eql(u8, &header.dcs, "DCS\x00"));
-            assert(header.uncompressedSize != header.compressedSize);
-            assert(eql(u8, &header.dcp, "DCP\x00"));
-            assert(header.unk2C == 0x20);
-            assert(header.level == 8 or header.level == 9);
-            assert(header.unk31 == 0);
-            assert(header.unk32 == 0);
-            assert(header.unk33 == 0);
-            assert(header.unk34 == 0x0);
-            assert(header.unk38 == 0 or header.unk38 == 15);
-            assert(header.unk39 == 0);
-            assert(header.unk3A == 0);
-            assert(header.unk3B == 0);
-            assert(header.unk3C == 0x0);
-            assert(header.unk40 == 0x00010100);
-            assert(eql(u8, &header.dca, "DCA\x00"));
+            const dcaSize = reader.readInt(i32, endian) catch return error.UnexpectedEof;
 
-            const comp = reader.readAllAlloc(allocator, @intCast(header.compressedSize)) catch return error.UnexpectedEof;
+            const comp = reader.readAllAlloc(allocator, @intCast(compressedSize)) catch return error.UnexpectedEof;
             var stream = std.io.fixedBufferStream(comp);
             var inflate = std.compress.zlib.decompressor(stream.reader());
-            const out = inflate.reader().readAllAlloc(allocator, @intCast(header.uncompressedSize)) catch return error.UnexpectedEof;
+            const out = inflate.reader().readAllAlloc(allocator, @intCast(uncompressedSize)) catch return error.UnexpectedEof;
 
             return DCX{
                 .header = Header{
                     .magic = magic,
-                    .dcsOffset = header.dcsOffset,
-                    .dcpOffset = header.dcpOffset,
-                    .dcs = header.dcs,
-                    .uncompressedSize = header.uncompressedSize,
-                    .compressedSize = header.compressedSize,
-                    .dcp = header.dcp,
-                    .format = header.format,
-                    .dca = header.dca,
-                    .dcaSize = header.dcaSize,
+                    .dcsOffset = dcsOffset,
+                    .dcpOffset = dcpOffset,
+                    .dcs = dcs,
+                    .uncompressedSize = uncompressedSize,
+                    .compressedSize = compressedSize,
+                    .dcp = dcp,
+                    .format = format,
+                    .dca = dca,
+                    .dcaSize = dcaSize,
                 },
                 .data = out,
             };
         } else if (eql(u8, &format, "EDGE")) {
-            return ParseError.UnsupportedCompression;
+            return error.UnsupportedCompression;
         } else if (eql(u8, &format, "KRAK")) {
-            return ParseError.UnsupportedCompression;
+            return error.UnsupportedCompression;
         } else if (eql(u8, &format, "ZSTD")) {
-            return ParseError.UnsupportedCompression;
+            return error.UnsupportedCompression;
         } else {
-            return ParseError.UnknownCompression;
+            return error.UnknownCompression;
         }
     } else if (eql(u8, &magic, "DCP\x00")) {
         format = bytes[4..8].*;
 
-        return ParseError.UnsupportedCompression;
+        return error.UnsupportedCompression;
     } else {
-        return ParseError.UnknownCompression;
+        return error.UnknownCompression;
     }
 }
 
