@@ -7,32 +7,45 @@ const ParseError = @import("root.zig").ParseError;
 const DCX = @This();
 
 // Define the DCX header struct
-const Header = extern struct {
-    magic: [4]u8, // Assert(dcx == "DCX\0");
-    unk04: i32, // Assert(unk04 == 0x10000 || unk04 == 0x11000);
-    dcsOffset: i32, // Assert(dcsOffset == 0x18);
-    dcpOffset: i32, // Assert(dcpOffset == 0x24);
-    unk10: i32, // Assert(unk10 == 0x24 || unk10 == 0x44);
-    unk14: i32, // In EDGE, size from 0x20 to end of block headers
-    dcs: [4]u8, // Assert(dcs == "DCS\0");
-    uncompressedSize: u32,
-    compressedSize: u32,
-    dcp: [4]u8, // Assert(dcp == "DCP\0");
-    format: [4]u8, // Assert(format == "DFLT" || format == "EDGE" || format == "KRAK");
-    unk2C: i32, // Assert(unk2C == 0x20);
-    unk30: i8, // Assert(unk30 == 6|| unk30 == 8 || unk30 == 9); // Compression param?
-    unk31: i8, // Assert(unk31 == 0);
-    unk32: i8, // Assert(unk32 == 0);
-    unk33: i8, // Assert(unk33 == 0);
-    unk34: i32, // Assert(unk34 == 0 || unk34 == 0x10000); // Block size for EDGE?
-    unk38: i8, // Assert(unk38 == 0 || unk38 == 15);
-    unk39: i8, // Assert(unk39 == 0);
-    unk3A: i8, // Assert(unk3A == 0);
-    unk3B: i8, // Assert(unk3B == 0);
-    unk3C: i32, // Assert(unk3C == 0);
+
+const DCX_DFLT_Header = extern struct {
+    unk04: i32,
+    dcsOffset: i32,
+    dcpOffset: i32,
+    unk10: i32,
+    unk14: i32,
+    dcs: [4]u8,
+    uncompressedSize: i32,
+    compressedSize: i32,
+    dcp: [4]u8,
+    format: [4]u8,
+    unk2C: i32,
+    level: u8,
+    unk31: u8,
+    unk32: u8,
+    unk33: u8,
+    unk34: i32,
+    unk38: u8,
+    unk39: u8,
+    unk3A: u8,
+    unk3B: u8,
+    unk3C: i32,
     unk40: i32,
-    dca: [4]u8, // Assert(dca == "DCA\0");
-    dcaSize: i32, // From before "DCA" to dca end
+    dca: [4]u8,
+    dcaSize: i32,
+};
+
+const Header = struct {
+    magic: [4]u8,
+    dcsOffset: i32,
+    dcpOffset: i32,
+    dcs: [4]u8,
+    uncompressedSize: i32,
+    compressedSize: i32,
+    dcp: [4]u8,
+    format: [4]u8,
+    dca: [4]u8,
+    dcaSize: i32,
 };
 
 header: Header,
@@ -45,23 +58,77 @@ pub fn read(
     var fbs = std.io.fixedBufferStream(bytes);
     const reader = fbs.reader();
 
-    const header = reader.readStructEndian(Header, .big) catch return error.UnexpectedEof;
+    const endian: std.builtin.Endian = .big;
 
-    if (header.compressedSize == header.uncompressedSize and std.mem.eql(u8, &header.format, "NONE")) {
-        return DCX{
-            .header = header,
-            .data = reader.readAllAlloc(allocator, header.compressedSize) catch return error.UnexpectedEof,
-        };
+    const magic: [4]u8 = reader.readBytesNoEof(4) catch return error.UnexpectedEof;
+    assert(eql(u8, &magic, "DCX\x00") or eql(u8, &magic, "DCP\x00"));
+
+    var format: [4]u8 = undefined;
+
+    if (eql(u8, &magic, "DCX\x00")) {
+        format = bytes[0x28 .. 0x28 + 4].*;
+
+        if (eql(u8, &format, "DFLT")) {
+            const header = reader.readStructEndian(DCX_DFLT_Header, endian) catch return error.UnexpectedEof;
+
+            assert(header.unk04 == 0x10000 or header.unk04 == 0x11000);
+            assert(header.dcsOffset == 0x18);
+            assert(header.dcpOffset == 0x24);
+            assert(header.unk10 == 0x24 or header.unk10 == 0x44);
+            const unk14Check: i32 = if (header.unk10 == 0x24) 0x2c else 0x4c;
+            assert(header.unk14 == unk14Check);
+            assert(eql(u8, &header.dcs, "DCS\x00"));
+            assert(header.uncompressedSize != header.compressedSize);
+            assert(eql(u8, &header.dcp, "DCP\x00"));
+            assert(header.unk2C == 0x20);
+            assert(header.level == 8 or header.level == 9);
+            assert(header.unk31 == 0);
+            assert(header.unk32 == 0);
+            assert(header.unk33 == 0);
+            assert(header.unk34 == 0x0);
+            assert(header.unk38 == 0 or header.unk38 == 15);
+            assert(header.unk39 == 0);
+            assert(header.unk3A == 0);
+            assert(header.unk3B == 0);
+            assert(header.unk3C == 0x0);
+            assert(header.unk40 == 0x00010100);
+            assert(eql(u8, &header.dca, "DCA\x00"));
+
+            const comp = reader.readAllAlloc(allocator, @intCast(header.compressedSize)) catch return error.UnexpectedEof;
+            var stream = std.io.fixedBufferStream(comp);
+            var inflate = std.compress.zlib.decompressor(stream.reader());
+            const out = inflate.reader().readAllAlloc(allocator, @intCast(header.uncompressedSize)) catch return error.UnexpectedEof;
+
+            return DCX{
+                .header = Header{
+                    .magic = magic,
+                    .dcsOffset = header.dcsOffset,
+                    .dcpOffset = header.dcpOffset,
+                    .dcs = header.dcs,
+                    .uncompressedSize = header.uncompressedSize,
+                    .compressedSize = header.compressedSize,
+                    .dcp = header.dcp,
+                    .format = header.format,
+                    .dca = header.dca,
+                    .dcaSize = header.dcaSize,
+                },
+                .data = out,
+            };
+        } else if (eql(u8, &format, "EDGE")) {
+            return ParseError.UnsupportedCompression;
+        } else if (eql(u8, &format, "KRAK")) {
+            return ParseError.UnsupportedCompression;
+        } else if (eql(u8, &format, "ZSTD")) {
+            return ParseError.UnsupportedCompression;
+        } else {
+            return ParseError.UnknownCompression;
+        }
+    } else if (eql(u8, &magic, "DCP\x00")) {
+        format = bytes[4..8].*;
+
+        return ParseError.UnsupportedCompression;
     } else {
-        const comp = reader.readAllAlloc(allocator, header.compressedSize) catch return error.UnexpectedEof;
-        var stream = std.io.fixedBufferStream(comp);
-        var inflate = std.compress.zlib.decompressor(stream.reader());
-        const out = inflate.reader().readAllAlloc(allocator, header.uncompressedSize) catch return error.UnexpectedEof;
-
-        return DCX{
-            .header = header,
-            .data = out,
-        };
+        return ParseError.UnknownCompression;
     }
 }
 
