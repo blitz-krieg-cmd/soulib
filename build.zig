@@ -10,17 +10,23 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Library
+
+    const soulmod = b.addModule("soulib", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
     const soulib = b.addLibrary(.{
         .linkage = .static,
         .name = "soulib",
-        .root_module = b.addModule("soulib", .{
-            .root_source_file = b.path("src/root.zig"),
-            .target = target,
-            .optimize = optimize,
-            .link_libc = true,
-        }),
+        .root_module = soulmod,
     });
     b.installArtifact(soulib);
+
+    // Examples
 
     const examples = [_]Program{
         .{
@@ -51,6 +57,18 @@ pub fn build(b: *std.Build) void {
         run_step.dependOn(&run_cmd.step);
         examples_step.dependOn(&exe.step);
     }
+
+    // Check
+
+    const exe_check = b.addExecutable(.{
+        .name = "check",
+        .root_module = soulmod,
+        .link_libc = true,
+    });
+    const check = b.step("check", "Check if compiles");
+    check.dependOn(&exe_check.step);
+
+    // Test
 
     const test_step = b.step("test", "Run unit tests");
     const unit_test = b.addTest(.{
