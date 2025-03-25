@@ -159,6 +159,6 @@ test "DSR TalkFont24.tpf.dcx" {
     try std.testing.expect(tpf.header.textureCount == tpf.textures.len);
 
     try std.testing.expect(tpf.textures.len == 3);
-
+    try std.testing.expect(std.mem.eql(u8, tpf.textures[0].bytes[0..4], "DDS "));
     try std.testing.expect(tpf.textures[0].format == 5);
 }
