@@ -90,6 +90,9 @@ pub fn read(
                 var dcxBytes: []u8 = undefined;
                 if (flags1 == 2 or flags1 == 3) {
                     const dcx = DCX.read(texBytes) catch return error.DecompressionFailed;
+                    if (!eql(u8, &dcx.header.magic, "DCP") or !eql(u8, &dcx.header.format, "EDGE")) {
+                        return error.DecompressionFailed;
+                    }
                     dcxBytes = dcx.data;
                 }
 
