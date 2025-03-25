@@ -1,16 +1,10 @@
 const std = @import("std");
-const builtin = @import("builtin");
+const assert = std.debug.assert;
+const eql = std.mem.eql;
+
+const ParseError = @import("root.zig").ParseError;
 
 const DCX = @This();
-
-// Define error set for parsing operations
-const ParseError = error{
-    InvalidMagic,
-    UnsupportedCompression,
-    DecompressionFailed,
-    OutOfMemory,
-    UnexpectedEof,
-};
 
 // Define the DCX header struct
 const Header = extern struct {

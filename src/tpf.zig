@@ -1,14 +1,11 @@
 const std = @import("std");
+const assert = std.debug.assert;
+const eql = std.mem.eql;
+
+const root = @import("root.zig");
+const ParseError = root.ParseError;
 
 const TPF = @This();
-
-const ParseError = error{
-    InvalidMagic,
-    UnsupportedCompression,
-    DecompressionFailed,
-    OutOfMemory,
-    UnexpectedEof,
-};
 
 const Header = extern struct {
     magic: [4]u8, // Assert(magic == "TPF\0");
