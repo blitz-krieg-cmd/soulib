@@ -144,7 +144,6 @@ test "DSR TalkFont24.tpf.dcx" {
     const fileBytes = try file.readToEndAlloc(allocator, try file.getEndPos());
     defer allocator.free(fileBytes);
 
-    const dcx = try DCX.read(
         fileBytes,
     );
 
