@@ -126,7 +126,9 @@ pub fn read(
     }
 }
 
-// ===========Testing=========== //
+test {
+    std.testing.refAllDecls(@This());
+}
 
 test "DSR TalkFont24.tpf.dcx" {
     const allocator = std.testing.allocator;
